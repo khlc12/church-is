@@ -22,7 +22,12 @@ import {
   Filter,
   Printer,
   Archive,
-  FileCheck
+  FileCheck,
+  UploadCloud,
+  Download,
+  AlertTriangle,
+  Phone,
+  Mail
 } from 'lucide-react';
 
 export const Icons = {
@@ -48,5 +53,10 @@ export const Icons = {
   Filter,
   Printer,
   Archive,
-  FileCheck
+  FileCheck,
+  UploadCloud,
+  Download,
+  AlertTriangle,
+  Phone,
+  Mail
 };

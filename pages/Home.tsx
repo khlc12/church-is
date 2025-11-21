@@ -6,7 +6,13 @@ const Home: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-br from-parish-blue to-purple-900 text-white overflow-hidden">
+      <div
+        className="relative text-white overflow-hidden bg-gradient-to-br from-parish-blue to-purple-900 bg-cover bg-center"
+        style={{
+          backgroundImage:
+            "linear-gradient(135deg, rgba(30,58,138,0.92), rgba(88,28,135,0.88)), url('/church-bg.jpg')"
+        }}
+      >
         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32 relative z-10 text-center">
           <h1 className="text-4xl md:text-6xl font-serif font-bold mb-6 drop-shadow-lg">

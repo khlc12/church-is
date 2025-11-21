@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icons } from '../components/Icons';
 import { useParish } from '../context/ParishContext';
+import { formatDate } from '../utils/date';
 
 const Donations: React.FC = () => {
   const { donations } = useParish();
@@ -47,7 +48,7 @@ const Donations: React.FC = () => {
                        {donation.isAnonymous ? 'Anonymous Donor' : donation.donorName}
                      </h3>
                      <p className="text-gray-500 text-sm">{donation.purpose}</p>
-                     <p className="text-xs text-gray-400 mt-1">{donation.date}</p>
+                     <p className="text-xs text-gray-400 mt-1">{formatDate(donation.date)}</p>
                    </div>
                 </div>
                 <div className="bg-green-50 text-green-700 font-medium px-4 py-2 rounded-full self-start sm:self-center whitespace-nowrap border border-green-100">

@@ -6,6 +6,8 @@ import { RequestCategory } from '../types';
 const RequestService: React.FC = () => {
   const { addRequest } = useParish();
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
   
   const [category, setCategory] = useState<RequestCategory>(RequestCategory.SACRAMENT);
   const [serviceType, setServiceType] = useState('Baptism');
@@ -27,18 +29,26 @@ const RequestService: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    addRequest({
-      category,
-      serviceType,
-      requesterName: formData.requesterName,
-      contactInfo: formData.contactInfo,
-      preferredDate: formData.preferredDate,
-      details: formData.details
-    });
-    setSubmitted(true);
-    window.scrollTo(0, 0);
+    setError('');
+    setIsSubmitting(true);
+    try {
+      await addRequest({
+        category,
+        serviceType,
+        requesterName: formData.requesterName,
+        contactInfo: formData.contactInfo,
+        preferredDate: formData.preferredDate,
+        details: formData.details
+      });
+      setSubmitted(true);
+      window.scrollTo(0, 0);
+    } catch (err) {
+      setError('Unable to submit your request right now. Please try again later.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -93,6 +103,11 @@ const RequestService: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          {error && (
+            <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
           
           <div className="bg-blue-50 border-l-4 border-parish-blue p-4 rounded mb-6">
             <div className="flex gap-3">
@@ -195,10 +210,11 @@ const RequestService: React.FC = () => {
 
           <div className="pt-4">
             <button 
-              type="submit" 
-              className="w-full bg-parish-blue hover:bg-blue-800 text-white font-bold py-4 rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-parish-blue hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-4 rounded-xl transition shadow-lg flex items-center justify-center gap-2"
             >
-              <Icons.FileQuestion size={20} /> Submit Request
+              {isSubmitting ? 'Submitting...' : <><Icons.FileQuestion size={20} /> Submit Request</>}
             </button>
             <p className="text-center text-sm text-gray-500 mt-4">
               By submitting this form, you agree to share your information with the parish office for processing purposes.

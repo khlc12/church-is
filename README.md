@@ -31,21 +31,55 @@ A comprehensive Information Management System designed for the **Quasi-Parish of
 
 ## 🛠 Tech Stack
 
-*   **Frontend Framework**: React 19 with TypeScript
+*   **Frontend Framework**: React 19 with TypeScript + Vite
 *   **Styling**: Tailwind CSS
 *   **Routing**: React Router DOM v7
 *   **Icons**: Lucide React
 *   **State Management**: React Context API (`ParishContext`)
-*   **Data Persistence**: In-memory mock data (Simulated backend behavior)
+*   **Backend**: Express + Prisma + MySQL (see `server/`)
+*   **Auth**: JWT-based admin login (`/api/auth/login`)
 
 ## 📂 Project Structure
 
-*   `src/components`: Reusable UI components (Navbar, Icons).
-*   `src/context`: Global state management logic (`ParishContext.tsx`).
-*   `src/pages`: Application views (Public and Admin).
-    *   `src/pages/admin`: Administrative modules (Manage Requests, Registry, etc.).
-*   `src/types.ts`: TypeScript definitions for data models (Sacraments, Requests, Users).
-*   `src/constants.ts`: Initial mock data configuration.
+```
+.
+├── components, pages, context, types.ts   # Frontend (Vite)
+├── services/api.ts                        # REST client used by the ParishContext
+├── server/                                # Express + Prisma backend
+│   ├── prisma/schema.prisma               # Database schema
+│   ├── prisma/seed.ts                     # Seed script (admin user + mock data)
+│   └── src                                # Express app + routes
+└── .env.example                           # Frontend env template
+```
+
+## ⚙️ Local Development
+
+1. **Prerequisites**
+   * Node.js ≥ 18
+   * MySQL 8 (local instance or Docker)
+
+2. **Prepare the database**
+   ```bash
+   cd server
+   cp .env.example .env        # update DATABASE_URL / JWT_SECRET / CORS_ORIGIN
+   npm install
+   npx prisma migrate dev
+   npm run seed                # creates admin/admin and sample data
+   npm run dev                 # starts the API on http://localhost:4000
+   ```
+
+3. **Configure the frontend**
+   ```bash
+   cd ..
+   cp .env.example .env.local  # defaults to http://localhost:4000/api
+   npm install
+   npm run dev
+   ```
+
+4. **Login**
+   * Visit `http://localhost:3000/#/login`
+   * Credentials (from the seed script): `admin / admin`
+   * The token is stored locally so you stay signed in across refreshes.
 
 ## 📝 Usage
 
@@ -68,3 +102,13 @@ To access the Admin Dashboard:
     *   Change status to **Scheduled**.
     *   Enter the confirmed date/time and notes.
     *   Once the event is done, change status to **Completed** to automatically add it to *Sacramental Records*.
+
+3.  **Certificate Upload Workflow**:
+    *   Use *Manage Service Requests* to issue a certificate. This creates a **Pending Upload** entry in the Certificate Registry.
+    *   Open *Certificate Registry*, locate the pending entry (highlighted with “Upload Required”), and upload the signed PDF/JPG/PNG copy.
+    *   Until a file is uploaded, the certificate cannot be downloaded. Once uploaded, the status switches to **Uploaded**, recording who uploaded it and when.
+    *   Entries that remain pending beyond the reminder window (configurable via `UPLOAD_REMINDER_HOURS`) are flagged so staff can follow up.
+
+4.  **Customize Mass & Events Highlight**:
+    *   Visit *Manage Schedules* to update the hero section on the Mass & Events page (title, message, and CTA link).
+    *   The preview on the right shows how the public section will render; this change publishes immediately to `/schedules`.

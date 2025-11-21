@@ -16,6 +16,7 @@ import ManageRequests from './pages/admin/ManageRequests';
 import CertificateRegistry from './pages/admin/CertificateRegistry';
 import { User } from './types';
 import { ParishProvider } from './context/ParishContext';
+import { DialogProvider } from './context/DialogContext';
 
 interface ProtectedRouteProps {
   user: User | null;
@@ -31,18 +32,29 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ user, children }) => {
 };
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    const stored = localStorage.getItem('parish_user');
+    return stored ? (JSON.parse(stored) as User) : null;
+  });
+  const [authToken, setAuthToken] = useState<string | null>(() => localStorage.getItem('parish_token'));
 
-  const handleLogin = (loggedInUser: User) => {
+  const handleLogin = (loggedInUser: User, token: string) => {
     setUser(loggedInUser);
+    setAuthToken(token);
+    localStorage.setItem('parish_user', JSON.stringify(loggedInUser));
+    localStorage.setItem('parish_token', token);
   };
 
   const handleLogout = () => {
     setUser(null);
+    setAuthToken(null);
+    localStorage.removeItem('parish_user');
+    localStorage.removeItem('parish_token');
   };
 
   return (
-    <ParishProvider>
+    <DialogProvider>
+      <ParishProvider authToken={authToken}>
       <Router>
         <div className="min-h-screen bg-gray-50 font-sans">
           <Navbar user={user} onLogout={handleLogout} />
@@ -122,6 +134,7 @@ const App: React.FC = () => {
         </div>
       </Router>
     </ParishProvider>
+    </DialogProvider>
   );
 };
 

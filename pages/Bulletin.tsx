@@ -1,6 +1,7 @@
 import React from 'react';
 import { Icons } from '../components/Icons';
 import { useParish } from '../context/ParishContext';
+import { formatDate } from '../utils/date';
 
 const Bulletin: React.FC = () => {
   const { announcements } = useParish();
@@ -51,7 +52,7 @@ const Bulletin: React.FC = () => {
               <div className="flex justify-between items-start mb-3">
                 <h2 className="text-xl font-bold text-gray-800">{item.title}</h2>
                 <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-1 rounded-full flex-shrink-0 ml-2">
-                  {item.date}
+                  {formatDate(item.date)}
                 </span>
               </div>
               <p className="text-gray-600 leading-relaxed whitespace-pre-line">{item.content}</p>

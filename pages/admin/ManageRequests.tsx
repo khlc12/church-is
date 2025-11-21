@@ -3,9 +3,13 @@ import { Link } from 'react-router-dom';
 import { Icons } from '../../components/Icons';
 import { useParish } from '../../context/ParishContext';
 import { RequestStatus, RequestCategory, ServiceRequest, DeliveryMethod } from '../../types';
+import { formatDate } from '../../utils/date';
+import { humanize } from '../../utils/text';
+import { useDialog } from '../../context/DialogContext';
 
 const ManageRequests: React.FC = () => {
   const { requests, updateRequest, deleteRequest, issueCertificate } = useParish();
+  const { confirm, alert } = useDialog();
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
@@ -46,9 +50,21 @@ const ManageRequests: React.FC = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
-    if(window.confirm('Are you sure you want to delete this request?')) {
-      deleteRequest(id);
+  const handleDelete = async (id: string) => {
+    const shouldDelete = await confirm({
+      title: 'Delete service request?',
+      message: 'This action cannot be undone.',
+      confirmText: 'Delete',
+      destructive: true
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteRequest(id);
+    } catch (error) {
+      await alert({
+        title: 'Unable to delete request',
+        message: 'Please try again later.'
+      });
     }
   };
 
@@ -68,7 +84,7 @@ const ManageRequests: React.FC = () => {
     }
   };
 
-  const confirmStatusUpdate = (e: React.FormEvent) => {
+  const confirmStatusUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!statusUpdateTarget) return;
 
@@ -81,9 +97,16 @@ const ManageRequests: React.FC = () => {
       updates.confirmedSchedule = statusFormData.confirmedSchedule;
     }
 
-    updateRequest(statusUpdateTarget.req.id, updates);
-    setIsStatusModalOpen(false);
-    setStatusUpdateTarget(null);
+    try {
+      await updateRequest(statusUpdateTarget.req.id, updates);
+      setIsStatusModalOpen(false);
+      setStatusUpdateTarget(null);
+    } catch (error) {
+      await alert({
+        title: 'Unable to update status',
+        message: 'Please try again.'
+      });
+    }
   };
 
   // --- Issue Logic ---
@@ -97,12 +120,19 @@ const ManageRequests: React.FC = () => {
     });
   };
 
-  const handleIssueSubmit = (e: React.FormEvent) => {
+  const handleIssueSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedRequestForIssue) {
-      issueCertificate(selectedRequestForIssue.id, issueData);
-      setIsIssueModalOpen(false);
-      setSelectedRequestForIssue(null);
+      try {
+        await issueCertificate(selectedRequestForIssue.id, issueData);
+        setIsIssueModalOpen(false);
+        setSelectedRequestForIssue(null);
+      } catch (error) {
+        await alert({
+          title: 'Unable to issue certificate',
+          message: 'Please try again shortly.'
+        });
+      }
     }
   };
 
@@ -140,7 +170,7 @@ const ManageRequests: React.FC = () => {
               >
                 <option value="ALL">All Status</option>
                 {Object.values(RequestStatus).map(status => (
-                  <option key={status} value={status}>{status}</option>
+                  <option key={status} value={status}>{humanize(status)}</option>
                 ))}
               </select>
               
@@ -151,7 +181,7 @@ const ManageRequests: React.FC = () => {
               >
                 <option value="ALL">All Categories</option>
                 {Object.values(RequestCategory).map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat} value={cat}>{humanize(cat)}</option>
                 ))}
               </select>
             </div>
@@ -181,7 +211,7 @@ const ManageRequests: React.FC = () => {
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 font-medium">{req.serviceType}</div>
                     <span className={`text-xs inline-flex px-2 py-0.5 rounded-full mt-1 ${req.category === RequestCategory.SACRAMENT ? 'bg-blue-50 text-blue-700' : 'bg-pink-50 text-pink-700'}`}>
-                      {req.category}
+                      {humanize(req.category)}
                     </span>
                     {req.confirmedSchedule && (
                       <div className="mt-1 flex items-center gap-1 text-xs font-bold text-purple-700 bg-purple-50 px-2 py-1 rounded w-fit">
@@ -213,12 +243,12 @@ const ManageRequests: React.FC = () => {
                       onChange={(e) => handleStatusChangeRequest(req, e.target.value as RequestStatus)}
                     >
                       {Object.values(RequestStatus).map(status => (
-                        <option key={status} value={status}>{status}</option>
+                        <option key={status} value={status}>{humanize(status)}</option>
                       ))}
                     </select>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {req.submissionDate}
+                    {formatDate(req.submissionDate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex justify-end items-center gap-2">
@@ -284,7 +314,7 @@ const ManageRequests: React.FC = () => {
                   onChange={(e) => setIssueData({...issueData, deliveryMethod: e.target.value as DeliveryMethod})}
                 >
                   {Object.values(DeliveryMethod).map(method => (
-                    <option key={method} value={method}>{method}</option>
+                    <option key={method} value={method}>{humanize(method)}</option>
                   ))}
                 </select>
               </div>

@@ -1,210 +1,286 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { MassSchedule, Announcement, Donation, ServiceRequest, RequestStatus, IssuedCertificate, DeliveryMethod, SacramentRecord, RequestCategory, SacramentType } from '../types';
-import { MOCK_SCHEDULES, MOCK_ANNOUNCEMENTS, MOCK_DONATIONS, MOCK_REQUESTS, MOCK_ISSUED_CERTIFICATES, MOCK_RECORDS } from '../constants';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import { MassSchedule, Announcement, Donation, ServiceRequest, IssuedCertificate, DeliveryMethod, SacramentRecord, RequestCategory, RequestStatus, ScheduleNote } from '../types';
+import { api } from '../services/api';
 
 interface ParishContextType {
   schedules: MassSchedule[];
+  scheduleNote: ScheduleNote | null;
   announcements: Announcement[];
   donations: Donation[];
   requests: ServiceRequest[];
   issuedCertificates: IssuedCertificate[];
   records: SacramentRecord[];
-  addSchedule: (schedule: Omit<MassSchedule, 'id'>) => void;
-  updateSchedule: (schedule: MassSchedule) => void;
-  deleteSchedule: (id: string) => void;
-  addAnnouncement: (announcement: Omit<Announcement, 'id'>) => void;
-  updateAnnouncement: (announcement: Announcement) => void;
-  deleteAnnouncement: (id: string) => void;
-  addDonation: (donation: Omit<Donation, 'id'>) => void;
-  updateDonation: (donation: Donation) => void;
-  deleteDonation: (id: string) => void;
-  addRequest: (request: Omit<ServiceRequest, 'id' | 'status' | 'submissionDate'>) => void;
-  updateRequest: (id: string, updates: Partial<ServiceRequest>) => void;
-  deleteRequest: (id: string) => void;
-  issueCertificate: (requestId: string, details: { deliveryMethod: DeliveryMethod, notes: string, issuedBy: string }) => void;
-  addRecord: (record: Omit<SacramentRecord, 'id'>) => void;
-  updateRecord: (record: SacramentRecord) => void;
-  deleteRecord: (id: string) => void;
+  isPublicLoading: boolean;
+  isAdminLoading: boolean;
+  refreshPublicData: () => Promise<void>;
+  refreshAdminData: () => Promise<void>;
+  addSchedule: (schedule: Omit<MassSchedule, 'id'>) => Promise<void>;
+  updateSchedule: (schedule: MassSchedule) => Promise<void>;
+  deleteSchedule: (id: string) => Promise<void>;
+  saveScheduleNote: (data: { title: string; body: string; actionLabel?: string; actionLink?: string }) => Promise<void>;
+  addAnnouncement: (announcement: Omit<Announcement, 'id'>) => Promise<void>;
+  updateAnnouncement: (announcement: Announcement) => Promise<void>;
+  deleteAnnouncement: (id: string) => Promise<void>;
+  addDonation: (donation: Omit<Donation, 'id'>) => Promise<void>;
+  updateDonation: (donation: Donation) => Promise<void>;
+  deleteDonation: (id: string) => Promise<void>;
+  addRequest: (request: Omit<ServiceRequest, 'id' | 'status' | 'submissionDate'>) => Promise<void>;
+  updateRequest: (id: string, updates: Partial<ServiceRequest>) => Promise<void>;
+  deleteRequest: (id: string) => Promise<void>;
+  issueCertificate: (requestId: string, details: { deliveryMethod: DeliveryMethod; notes: string; issuedBy: string }) => Promise<void>;
+  uploadCertificateFile: (certificateId: string, file: File) => Promise<void>;
+  downloadCertificateFile: (certificateId: string) => Promise<{ blob: Blob; filename: string }>;
+  addRecord: (record: Omit<SacramentRecord, 'id'>) => Promise<void>;
+  updateRecord: (record: SacramentRecord) => Promise<void>;
+  archiveRecord: (id: string, reason?: string) => Promise<void>;
+  unarchiveRecord: (id: string) => Promise<void>;
+}
+
+interface ParishProviderProps {
+  children: ReactNode;
+  authToken?: string | null;
 }
 
 const ParishContext = createContext<ParishContextType | undefined>(undefined);
 
-export const ParishProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [schedules, setSchedules] = useState<MassSchedule[]>(MOCK_SCHEDULES);
-  const [announcements, setAnnouncements] = useState<Announcement[]>(MOCK_ANNOUNCEMENTS);
-  const [donations, setDonations] = useState<Donation[]>(MOCK_DONATIONS);
-  const [requests, setRequests] = useState<ServiceRequest[]>(MOCK_REQUESTS);
-  const [issuedCertificates, setIssuedCertificates] = useState<IssuedCertificate[]>(MOCK_ISSUED_CERTIFICATES);
-  const [records, setRecords] = useState<SacramentRecord[]>(MOCK_RECORDS);
+export const ParishProvider: React.FC<ParishProviderProps> = ({ children, authToken }) => {
+  const [schedules, setSchedules] = useState<MassSchedule[]>([]);
+  const [scheduleNote, setScheduleNote] = useState<ScheduleNote | null>(null);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [donations, setDonations] = useState<Donation[]>([]);
+  const [requests, setRequests] = useState<ServiceRequest[]>([]);
+  const [issuedCertificates, setIssuedCertificates] = useState<IssuedCertificate[]>([]);
+  const [records, setRecords] = useState<SacramentRecord[]>([]);
+  const [isPublicLoading, setIsPublicLoading] = useState(true);
+  const [isAdminLoading, setIsAdminLoading] = useState(false);
 
-  // Schedule Actions
-  const addSchedule = (schedule: Omit<MassSchedule, 'id'>) => {
-    const newSchedule = { ...schedule, id: Date.now().toString() };
-    setSchedules([...schedules, newSchedule]);
-  };
+  const fetchPublicData = useCallback(async () => {
+    try {
+      setIsPublicLoading(true);
+      const [scheduleData, noteData, announcementData, donationData] = await Promise.all([
+        api.getSchedules(),
+        api.getScheduleNote(),
+        api.getAnnouncements(),
+        api.getDonations()
+      ]);
+      setSchedules(scheduleData);
+      setScheduleNote(noteData);
+      setAnnouncements(announcementData);
+      setDonations(donationData);
+    } catch (error) {
+      console.error('Failed to load public data', error);
+    } finally {
+      setIsPublicLoading(false);
+    }
+  }, []);
 
-  const updateSchedule = (updatedSchedule: MassSchedule) => {
-    setSchedules(schedules.map(s => s.id === updatedSchedule.id ? updatedSchedule : s));
-  };
-
-  const deleteSchedule = (id: string) => {
-    setSchedules(schedules.filter(s => s.id !== id));
-  };
-
-  // Announcement Actions
-  const addAnnouncement = (announcement: Omit<Announcement, 'id'>) => {
-    const newAnnouncement = { ...announcement, id: Date.now().toString() };
-    // Add new items to the top
-    setAnnouncements([newAnnouncement, ...announcements]);
-  };
-
-  const updateAnnouncement = (updatedAnnouncement: Announcement) => {
-    setAnnouncements(announcements.map(a => a.id === updatedAnnouncement.id ? updatedAnnouncement : a));
-  };
-
-  const deleteAnnouncement = (id: string) => {
-    setAnnouncements(announcements.filter(a => a.id !== id));
-  };
-
-  // Donation Actions
-  const addDonation = (donation: Omit<Donation, 'id'>) => {
-    const newDonation = { ...donation, id: Date.now().toString() };
-    setDonations([newDonation, ...donations]);
-  };
-
-  const updateDonation = (updatedDonation: Donation) => {
-    setDonations(donations.map(d => d.id === updatedDonation.id ? updatedDonation : d));
-  };
-
-  const deleteDonation = (id: string) => {
-    setDonations(donations.filter(d => d.id !== id));
-  };
-
-  // Sacrament Record Actions
-  const addRecord = (record: Omit<SacramentRecord, 'id'>) => {
-    const newRecord = { ...record, id: Date.now().toString() };
-    setRecords([newRecord, ...records]);
-  };
-
-  const updateRecord = (updatedRecord: SacramentRecord) => {
-    setRecords(records.map(r => r.id === updatedRecord.id ? updatedRecord : r));
-  };
-
-  const deleteRecord = (id: string) => {
-    setRecords(records.filter(r => r.id !== id));
-  };
-
-  // Helper to map service string to SacramentType Enum
-  const mapServiceToSacramentType = (service: string): SacramentType | null => {
-    const s = service.toLowerCase();
-    if (s.includes('baptism')) return SacramentType.BAPTISM;
-    if (s.includes('confirmation')) return SacramentType.CONFIRMATION;
-    if (s.includes('marriage')) return SacramentType.MARRIAGE;
-    if (s.includes('funeral')) return SacramentType.FUNERAL;
-    return null;
-  };
-
-  // Service Request Actions
-  const addRequest = (request: Omit<ServiceRequest, 'id' | 'status' | 'submissionDate'>) => {
-    const newRequest: ServiceRequest = {
-      ...request,
-      id: Date.now().toString(),
-      status: RequestStatus.PENDING,
-      submissionDate: new Date().toISOString().split('T')[0]
-    };
-    setRequests([newRequest, ...requests]);
-  };
-
-  const updateRequest = (id: string, updates: Partial<ServiceRequest>) => {
-    // Check for auto-creation of Sacrament Record
-    const existingRequest = requests.find(r => r.id === id);
-    
-    if (existingRequest) {
-       // Merge existing with updates to check final state
-       const finalState = { ...existingRequest, ...updates };
-
-       // If status changed to COMPLETED and it is a SACRAMENT
-       if (
-         updates.status === RequestStatus.COMPLETED && 
-         existingRequest.status !== RequestStatus.COMPLETED &&
-         existingRequest.category === RequestCategory.SACRAMENT
-       ) {
-          const sacramentType = mapServiceToSacramentType(existingRequest.serviceType);
-          
-          if (sacramentType) {
-            // Try to extract a date YYYY-MM-DD
-            const recordDate = finalState.confirmedSchedule 
-              ? finalState.confirmedSchedule.split(' ')[0] // naive split if format is 'YYYY-MM-DD HH:MM'
-              : finalState.preferredDate || new Date().toISOString().split('T')[0];
-
-            addRecord({
-              name: existingRequest.requesterName, // Default to requester, admin can edit later
-              type: sacramentType,
-              date: recordDate.includes('-') ? recordDate : new Date().toISOString().split('T')[0],
-              officiant: 'Parish Priest', // Default
-              details: `Generated from Request #${id}. Details: ${existingRequest.details}`
-            });
-          }
-       }
+  const fetchAdminData = useCallback(async () => {
+    if (!authToken) {
+      setRequests([]);
+      setIssuedCertificates([]);
+      setRecords([]);
+      return;
     }
 
-    setRequests(requests.map(r => r.id === id ? { ...r, ...updates } : r));
+    try {
+      setIsAdminLoading(true);
+      const [requestData, certificateData, recordData] = await Promise.all([
+        api.getRequests(authToken),
+        api.getCertificates(authToken),
+        api.getRecords(authToken, true)
+      ]);
+      setRequests(requestData);
+      setIssuedCertificates(certificateData);
+      setRecords(recordData);
+    } catch (error) {
+      console.error('Failed to load admin data', error);
+    } finally {
+      setIsAdminLoading(false);
+    }
+  }, [authToken]);
+
+  useEffect(() => {
+    fetchPublicData();
+  }, [fetchPublicData]);
+
+  useEffect(() => {
+    fetchAdminData();
+  }, [fetchAdminData]);
+
+  const requireAuth = () => {
+    if (!authToken) {
+      throw new Error('Authentication required');
+    }
+    return authToken;
   };
 
-  const deleteRequest = (id: string) => {
-    setRequests(requests.filter(r => r.id !== id));
+  const addSchedule = async (schedule: Omit<MassSchedule, 'id'>) => {
+    const token = requireAuth();
+    const created = await api.createSchedule(schedule, token);
+    setSchedules((prev) => [...prev, created]);
   };
 
-  // Issue Certificate Action
-  const issueCertificate = (requestId: string, details: { deliveryMethod: DeliveryMethod, notes: string, issuedBy: string }) => {
-    const request = requests.find(r => r.id === requestId);
-    if (!request) return;
+  const saveScheduleNote = async (data: { title: string; body: string; actionLabel?: string; actionLink?: string }) => {
+    const token = requireAuth();
+    const updated = await api.updateScheduleNote(data, token);
+    setScheduleNote(updated);
+  };
 
-    // 1. Create Issued Certificate Record
-    const newCertificate: IssuedCertificate = {
-      id: Date.now().toString(),
-      requestId: request.id,
-      type: request.serviceType,
-      // For simplicity, assuming details contains recipient name or requester is recipient
-      recipientName: request.details.substring(0, 50) + "...", 
-      requesterName: request.requesterName,
-      dateIssued: new Date().toISOString().split('T')[0],
-      issuedBy: details.issuedBy,
-      deliveryMethod: details.deliveryMethod,
-      notes: details.notes
-    };
+  const updateSchedule = async (schedule: MassSchedule) => {
+    const token = requireAuth();
+    const updated = await api.updateSchedule(schedule.id, schedule, token);
+    setSchedules((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+  };
 
-    setIssuedCertificates([newCertificate, ...issuedCertificates]);
+  const deleteSchedule = async (id: string) => {
+    const token = requireAuth();
+    await api.deleteSchedule(id, token);
+    setSchedules((prev) => prev.filter((item) => item.id !== id));
+  };
 
-    // 2. Mark Request as Completed
-    updateRequest(requestId, { status: RequestStatus.COMPLETED });
+  const addAnnouncement = async (announcement: Omit<Announcement, 'id'>) => {
+    const token = requireAuth();
+    const created = await api.createAnnouncement(announcement, token);
+    setAnnouncements((prev) => [created, ...prev]);
+  };
+
+  const updateAnnouncement = async (announcement: Announcement) => {
+    const token = requireAuth();
+    const updated = await api.updateAnnouncement(announcement.id, announcement, token);
+    setAnnouncements((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+  };
+
+  const deleteAnnouncement = async (id: string) => {
+    const token = requireAuth();
+    await api.deleteAnnouncement(id, token);
+    setAnnouncements((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const addDonation = async (donation: Omit<Donation, 'id'>) => {
+    const token = requireAuth();
+    const created = await api.createDonation(donation, token);
+    setDonations((prev) => [created, ...prev]);
+  };
+
+  const updateDonation = async (donation: Donation) => {
+    const token = requireAuth();
+    const updated = await api.updateDonation(donation.id, donation, token);
+    setDonations((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+  };
+
+  const deleteDonation = async (id: string) => {
+    const token = requireAuth();
+    await api.deleteDonation(id, token);
+    setDonations((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const addRecord = async (record: Omit<SacramentRecord, 'id'>) => {
+    const token = requireAuth();
+    const created = await api.createRecord(record, token);
+    setRecords((prev) => [created, ...prev]);
+  };
+
+  const updateRecord = async (record: SacramentRecord) => {
+    const token = requireAuth();
+    const updated = await api.updateRecord(record.id, record, token);
+    setRecords((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+  };
+
+  const archiveRecord = async (id: string, reason?: string) => {
+    const token = requireAuth();
+    const updated = await api.archiveRecord(id, reason, token);
+    setRecords((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+  };
+
+  const unarchiveRecord = async (id: string) => {
+    const token = requireAuth();
+    const updated = await api.unarchiveRecord(id, token);
+    setRecords((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+  };
+
+  const addRequest = async (request: Omit<ServiceRequest, 'id' | 'status' | 'submissionDate'>) => {
+    const created = await api.createRequest(request);
+    if (authToken) {
+      setRequests((prev) => [created, ...prev]);
+    }
+  };
+
+  const updateRequest = async (id: string, updates: Partial<ServiceRequest>) => {
+    const token = requireAuth();
+    const updated = await api.updateRequest(id, updates, token);
+    setRequests((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+    if (updates.status === RequestStatus.COMPLETED && updated.category === RequestCategory.SACRAMENT) {
+      await fetchAdminData();
+    }
+  };
+
+  const deleteRequest = async (id: string) => {
+    const token = requireAuth();
+    await api.deleteRequest(id, token);
+    setRequests((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const issueCertificate = async (
+    requestId: string,
+    details: { deliveryMethod: DeliveryMethod; notes: string; issuedBy: string }
+  ) => {
+    const token = requireAuth();
+    const certificate = await api.issueCertificate(requestId, details, token);
+    setIssuedCertificates((prev) => [certificate, ...prev]);
+    setRequests((prev) =>
+      prev.map((item) =>
+        item.id === requestId ? { ...item, status: RequestStatus.COMPLETED } : item
+      )
+    );
+  };
+
+  const uploadCertificateFile = async (certificateId: string, file: File) => {
+    const token = requireAuth();
+    const updated = await api.uploadCertificateFile(certificateId, file, token);
+    setIssuedCertificates((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+  };
+
+  const downloadCertificateFile = async (certificateId: string) => {
+    const token = requireAuth();
+    return api.downloadCertificateFile(certificateId, token);
   };
 
   return (
-    <ParishContext.Provider value={{
-      schedules,
-      announcements,
-      donations,
-      requests,
-      issuedCertificates,
-      records,
-      addSchedule,
-      updateSchedule,
-      deleteSchedule,
-      addAnnouncement,
-      updateAnnouncement,
-      deleteAnnouncement,
-      addDonation,
-      updateDonation,
-      deleteDonation,
-      addRequest,
-      updateRequest,
-      deleteRequest,
-      issueCertificate,
-      addRecord,
-      updateRecord,
-      deleteRecord
-    }}>
+    <ParishContext.Provider
+      value={{
+        schedules,
+        scheduleNote,
+        announcements,
+        donations,
+        requests,
+        issuedCertificates,
+        records,
+        isPublicLoading,
+        isAdminLoading,
+        refreshPublicData: fetchPublicData,
+        refreshAdminData: fetchAdminData,
+        addSchedule,
+        updateSchedule,
+        deleteSchedule,
+        saveScheduleNote,
+        addAnnouncement,
+        updateAnnouncement,
+        deleteAnnouncement,
+        addDonation,
+        updateDonation,
+        deleteDonation,
+        addRequest,
+        updateRequest,
+        deleteRequest,
+        issueCertificate,
+        uploadCertificateFile,
+        downloadCertificateFile,
+        addRecord,
+        updateRecord,
+        archiveRecord,
+        unarchiveRecord
+      }}
+    >
       {children}
     </ParishContext.Provider>
   );

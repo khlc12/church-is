@@ -1,8 +1,8 @@
 export enum SacramentType {
-  BAPTISM = 'Baptism',
-  CONFIRMATION = 'Confirmation',
-  MARRIAGE = 'Marriage',
-  FUNERAL = 'Funeral'
+  BAPTISM = 'BAPTISM',
+  CONFIRMATION = 'CONFIRMATION',
+  MARRIAGE = 'MARRIAGE',
+  FUNERAL = 'FUNERAL'
 }
 
 export interface SacramentRecord {
@@ -12,6 +12,10 @@ export interface SacramentRecord {
   type: SacramentType;
   officiant: string;
   details: string; // e.g., Parents, Witnesses
+  isArchived: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  archiveReason?: string;
 }
 
 export interface Announcement {
@@ -31,6 +35,14 @@ export interface MassSchedule {
   location: string;
 }
 
+export interface ScheduleNote {
+  id: string;
+  title: string;
+  body: string;
+  actionLabel?: string;
+  actionLink?: string;
+}
+
 export interface Donation {
   id: string;
   donorName: string;
@@ -41,16 +53,16 @@ export interface Donation {
 }
 
 export enum RequestCategory {
-  SACRAMENT = 'Sacrament',
-  CERTIFICATE = 'Certificate'
+  SACRAMENT = 'SACRAMENT',
+  CERTIFICATE = 'CERTIFICATE'
 }
 
 export enum RequestStatus {
-  PENDING = 'Pending',
-  APPROVED = 'Approved',
-  SCHEDULED = 'Scheduled',
-  COMPLETED = 'Completed',
-  REJECTED = 'Rejected'
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  SCHEDULED = 'SCHEDULED',
+  COMPLETED = 'COMPLETED',
+  REJECTED = 'REJECTED'
 }
 
 export interface ServiceRequest {
@@ -69,9 +81,14 @@ export interface ServiceRequest {
 }
 
 export enum DeliveryMethod {
-  PICKUP = 'Pickup',
-  EMAIL = 'Email',
-  COURIER = 'Courier'
+  PICKUP = 'PICKUP',
+  EMAIL = 'EMAIL',
+  COURIER = 'COURIER'
+}
+
+export enum CertificateStatus {
+  PENDING_UPLOAD = 'PENDING_UPLOAD',
+  UPLOADED = 'UPLOADED'
 }
 
 export interface IssuedCertificate {
@@ -84,6 +101,13 @@ export interface IssuedCertificate {
   issuedBy: string;
   deliveryMethod: DeliveryMethod;
   notes?: string;
+  status: CertificateStatus;
+  fileName?: string;
+  fileMimeType?: string;
+  fileSize?: number;
+  uploadedAt?: string;
+  uploadedBy?: string;
+  needsUploadReminder?: boolean;
 }
 
 export enum UserRole {

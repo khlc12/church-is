@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Icons } from '../components/Icons';
 import { User, UserRole } from '../types';
 import { LOGO_URL, LOGO_FALLBACK } from '../constants';
+import { api } from '../services/api';
 
 interface LoginProps {
-  onLogin: (user: User) => void;
+  onLogin: (user: User, token: string) => void;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -13,16 +14,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [imgSrc, setImgSrc] = useState(LOGO_URL);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock authentication
-    if (username === 'admin' && password === 'admin') {
-      onLogin({ username: 'Administrator', role: UserRole.ADMIN });
+    setError('');
+    setIsSubmitting(true);
+    try {
+      const response = await api.login({ username, password });
+      onLogin({ username: response.user.username, role: response.user.role as UserRole }, response.token);
       navigate('/admin/dashboard');
-    } else {
-      setError('Invalid credentials. Try admin/admin');
+    } catch (err) {
+      setError('Invalid credentials or server error. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -71,9 +77,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
           <button 
             type="submit" 
-            className="w-full bg-parish-blue hover:bg-blue-800 text-white font-bold py-3 rounded-lg transition shadow-lg transform active:scale-95"
+            disabled={isSubmitting}
+            className="w-full bg-parish-blue hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg transition shadow-lg transform active:scale-95"
           >
-            Sign In
+            {isSubmitting ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
       </div>

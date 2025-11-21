@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { useParish } from '../context/ParishContext';
 import { SacramentType, SacramentRecord } from '../types';
 import { Icons } from '../components/Icons';
+import { formatDate } from '../utils/date';
+import { humanize } from '../utils/text';
+import { useDialog } from '../context/DialogContext';
 
 const Records: React.FC = () => {
-  const { records, addRecord, updateRecord, deleteRecord } = useParish();
+  const { records, addRecord, updateRecord, archiveRecord, unarchiveRecord } = useParish();
+  const { prompt, alert, confirm } = useDialog();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('ALL');
+  const [showArchived, setShowArchived] = useState(false);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,7 +31,8 @@ const Records: React.FC = () => {
   const filteredRecords = records.filter(record => {
     const matchesSearch = record.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'ALL' || record.type === filterType;
-    return matchesSearch && matchesType;
+    const matchesArchive = showArchived ? record.isArchived : !record.isArchived;
+    return matchesSearch && matchesType && matchesArchive;
   });
 
   const getBadgeColor = (type: SacramentType) => {
@@ -39,13 +45,21 @@ const Records: React.FC = () => {
     }
   };
 
+  const toInputDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toISOString().split('T')[0];
+  };
+
   const handleOpenModal = (record?: SacramentRecord) => {
     if (record) {
       setIsEditing(true);
       setEditId(record.id);
       setFormData({
         name: record.name,
-        date: record.date,
+        date: toInputDate(record.date),
         type: record.type,
         officiant: record.officiant,
         details: record.details
@@ -65,19 +79,57 @@ const Records: React.FC = () => {
     setEditId(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isEditing && editId) {
-      updateRecord({ ...formData, id: editId });
-    } else {
-      addRecord(formData);
+    try {
+      if (isEditing && editId) {
+        await updateRecord({ ...formData, id: editId });
+      } else {
+        await addRecord(formData);
+      }
+      handleCloseModal();
+    } catch (error) {
+      await alert({
+        title: 'Unable to save record',
+        message: 'Please check the details and try again.'
+      });
     }
-    handleCloseModal();
   };
 
-  const handleArchive = (id: string) => {
-    if (window.confirm('Are you sure you want to archive/delete this record?')) {
-      deleteRecord(id);
+  const handleArchive = async (record: SacramentRecord) => {
+    const reason = await prompt({
+      title: 'Archive record?',
+      message: `Archiving ${record.name}'s record hides it from the active list. You can provide an optional note or leave this blank.`,
+      confirmText: 'Archive Record',
+      cancelText: 'Cancel',
+      placeholder: 'Reason for archiving (optional)',
+      destructive: true
+    });
+    if (reason === null) return;
+    try {
+      await archiveRecord(record.id, reason.trim() || undefined);
+    } catch (error) {
+      await alert({
+        title: 'Unable to archive record',
+        message: 'Please try again later.'
+      });
+    }
+  };
+
+  const handleRestore = async (record: SacramentRecord) => {
+    const shouldRestore = await confirm({
+      title: 'Restore record?',
+      message: `This will return ${record.name}'s record to the active registry.`,
+      confirmText: 'Restore'
+    });
+    if (!shouldRestore) return;
+    try {
+      await unarchiveRecord(record.id);
+    } catch (error) {
+      await alert({
+        title: 'Unable to restore record',
+        message: 'Please try again shortly.'
+      });
     }
   };
 
@@ -123,9 +175,18 @@ const Records: React.FC = () => {
           >
             <option value="ALL">All Sacraments</option>
             {Object.values(SacramentType).map(type => (
-              <option key={type} value={type}>{type}</option>
+              <option key={type} value={type}>{humanize(type)}</option>
             ))}
           </select>
+          <label className="flex items-center gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="rounded text-parish-blue focus:ring-parish-blue"
+            />
+            Show archived
+          </label>
         </div>
 
         {/* Table */}
@@ -148,27 +209,47 @@ const Records: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{record.name}</div>
                     <div className="text-xs text-gray-500 truncate max-w-[150px]">{record.details}</div>
+                    {record.isArchived && (
+                      <div className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                        <Icons.Archive size={12} /> Archived {record.archivedAt ? `on ${formatDate(record.archivedAt)}` : ''}
+                      </div>
+                    )}
+                    {record.archiveReason && (
+                      <div className="text-xs text-gray-400 italic truncate max-w-[150px]" title={record.archiveReason}>
+                        Reason: {record.archiveReason}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getBadgeColor(record.type)}`}>
-                      {record.type}
+                      {humanize(record.type)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.date}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(record.date)}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.officiant}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
                     <button 
                       onClick={() => handleOpenModal(record)}
-                      className="text-parish-blue hover:text-blue-900 mr-4"
+                      className="text-parish-blue hover:text-blue-900 disabled:opacity-40"
+                      disabled={record.isArchived}
                     >
                       Edit
                     </button>
-                    <button 
-                      onClick={() => handleArchive(record.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Archive
-                    </button>
+                    {record.isArchived ? (
+                      <button 
+                        onClick={() => handleRestore(record)}
+                        className="text-green-600 hover:text-green-900"
+                      >
+                        Restore
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => handleArchive(record)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Archive
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -200,16 +281,16 @@ const Records: React.FC = () => {
              <form onSubmit={handleSubmit} className="space-y-4">
                <div>
                  <label className="block text-sm font-medium text-gray-700 mb-1">Sacrament Type</label>
-                 <select
-                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-parish-blue outline-none"
-                   value={formData.type}
-                   onChange={(e) => setFormData({...formData, type: e.target.value as SacramentType})}
-                 >
-                   {Object.values(SacramentType).map(type => (
-                     <option key={type} value={type}>{type}</option>
-                   ))}
-                 </select>
-               </div>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-parish-blue outline-none"
+                  value={formData.type}
+                  onChange={(e) => setFormData({...formData, type: e.target.value as SacramentType})}
+                >
+                  {Object.values(SacramentType).map(type => (
+                    <option key={type} value={type}>{humanize(type)}</option>
+                  ))}
+                </select>
+              </div>
 
                <div>
                  <label className="block text-sm font-medium text-gray-700 mb-1">Recipient Name</label>

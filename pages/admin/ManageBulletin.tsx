@@ -3,9 +3,12 @@ import { Link } from 'react-router-dom';
 import { Icons } from '../../components/Icons';
 import { useParish } from '../../context/ParishContext';
 import { Announcement } from '../../types';
+import { formatDate } from '../../utils/date';
+import { useDialog } from '../../context/DialogContext';
 
 const ManageBulletin: React.FC = () => {
   const { announcements, addAnnouncement, updateAnnouncement, deleteAnnouncement } = useParish();
+  const { confirm, alert } = useDialog();
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,21 +23,36 @@ const ManageBulletin: React.FC = () => {
 
   const [formData, setFormData] = useState(initialFormState);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isEditing && editId) {
-      updateAnnouncement({ ...formData, id: editId });
-    } else {
-      addAnnouncement(formData);
+    try {
+      if (isEditing && editId) {
+        await updateAnnouncement({ ...formData, id: editId });
+      } else {
+        await addAnnouncement(formData);
+      }
+      resetForm();
+    } catch (error) {
+      await alert({
+        title: 'Unable to save announcement',
+        message: 'Please check your input and try again.'
+      });
     }
-    resetForm();
+  };
+
+  const toInputDate = (value: string) => {
+    const dateValue = new Date(value);
+    if (Number.isNaN(dateValue.getTime())) {
+      return value;
+    }
+    return dateValue.toISOString().split('T')[0];
   };
 
   const handleEdit = (item: Announcement) => {
     setFormData({
       title: item.title,
       content: item.content,
-      date: item.date,
+      date: toInputDate(item.date),
       imageUrl: item.imageUrl || '',
       isPublic: item.isPublic
     });
@@ -43,9 +61,21 @@ const ManageBulletin: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this announcement?')) {
-      deleteAnnouncement(id);
+  const handleDelete = async (id: string) => {
+    const shouldDelete = await confirm({
+      title: 'Delete announcement?',
+      message: 'This post will be removed from the bulletin.',
+      confirmText: 'Delete',
+      destructive: true
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteAnnouncement(id);
+    } catch (error) {
+      await alert({
+        title: 'Unable to delete announcement',
+        message: 'Please try again later.'
+      });
     }
   };
 
@@ -63,7 +93,10 @@ const ManageBulletin: React.FC = () => {
     if (file) {
       // Simple size validation (limit to 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert("File is too large. Please choose an image under 5MB.");
+        void alert({
+          title: 'Image too large',
+          message: 'Please choose an image under 5MB.'
+        });
         return;
       }
 
@@ -245,7 +278,7 @@ const ManageBulletin: React.FC = () => {
                  <div className="flex justify-between items-start mb-2">
                    <div>
                      <h3 className="font-bold text-lg text-gray-800">{item.title}</h3>
-                     <p className="text-xs text-gray-500">{item.date}</p>
+                    <p className="text-xs text-gray-500">{formatDate(item.date)}</p>
                    </div>
                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 

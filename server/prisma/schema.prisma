@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum SacramentType {
+  BAPTISM
+  CONFIRMATION
+  MARRIAGE
+  FUNERAL
+}
+
+enum RequestCategory {
+  SACRAMENT
+  CERTIFICATE
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  SCHEDULED
+  COMPLETED
+  REJECTED
+}
+
+enum DeliveryMethod {
+  PICKUP
+  EMAIL
+  COURIER
+}
+
+enum CertificateStatus {
+  PENDING_UPLOAD
+  UPLOADED
+}
+
+enum UserRole {
+  ADMIN
+  STAFF
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String
+  role         UserRole @default(ADMIN)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model MassSchedule {
+  id          String   @id @default(uuid())
+  day         String
+  time        String
+  description String
+  location    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ScheduleNote {
+  id           String   @id @default(uuid())
+  title        String
+  body         String   @db.Text
+  actionLabel  String?
+  actionLink   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String   @db.Text
+  date      DateTime
+  isPublic  Boolean  @default(true)
+  imageUrl  String?  @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Donation {
+  id          String   @id @default(uuid())
+  donorName   String
+  amount      String
+  purpose     String
+  date        DateTime
+  isAnonymous Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ServiceRequest {
+  id                 String             @id @default(uuid())
+  category           RequestCategory
+  serviceType        String
+  requesterName      String
+  contactInfo        String
+  preferredDate      String?
+  details            String
+  status             RequestStatus      @default(PENDING)
+  submissionDate     DateTime           @default(now())
+  confirmedSchedule  String?
+  adminNotes         String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  certificates       IssuedCertificate[]
+  sacramentRecords   SacramentRecord[]
+}
+
+model SacramentRecord {
+  id          String        @id @default(uuid())
+  name        String
+  date        DateTime
+  type        SacramentType
+  officiant   String
+  details     String
+  isArchived  Boolean       @default(false)
+  archivedAt  DateTime?
+  archivedBy  String?
+  archiveReason String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  requestId   String?
+  request     ServiceRequest? @relation(fields: [requestId], references: [id])
+}
+
+model IssuedCertificate {
+  id             String        @id @default(uuid())
+  requestId      String
+  request        ServiceRequest @relation(fields: [requestId], references: [id])
+  type           String
+  recipientName  String
+  requesterName  String
+  dateIssued     DateTime       @default(now())
+  issuedBy       String
+  deliveryMethod DeliveryMethod
+  notes          String?
+  status         CertificateStatus @default(PENDING_UPLOAD)
+  fileData       Bytes?
+  fileName       String?
+  fileMimeType   String?
+  fileSize       Int?
+  uploadedAt     DateTime?
+  uploadedBy     String?
+  reminderSentAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}

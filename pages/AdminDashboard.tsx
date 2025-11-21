@@ -1,13 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MOCK_RECORDS } from '../constants';
 import { Icons } from '../components/Icons';
 import { useParish } from '../context/ParishContext';
+import { RequestStatus } from '../types';
 
 const AdminDashboard: React.FC = () => {
-  const { announcements, donations, requests, issuedCertificates } = useParish();
+  const { announcements, donations, requests, issuedCertificates, records } = useParish();
 
-  const pendingRequests = requests.filter(r => r.status === 'Pending').length;
+  const pendingRequests = requests.filter(r => r.status === RequestStatus.PENDING).length;
+  const activeRecords = records.filter(r => !r.isArchived).length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
@@ -106,7 +107,7 @@ const AdminDashboard: React.FC = () => {
             <h3 className="text-gray-500 font-medium">Sacraments</h3>
             <div className="bg-blue-100 p-2 rounded-lg text-parish-blue"><Icons.BookOpen size={20} /></div>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{MOCK_RECORDS.length}</p>
+          <p className="text-3xl font-bold text-gray-900">{activeRecords}</p>
           <span className="text-xs text-gray-500">Historic records</span>
         </div>
       </div>

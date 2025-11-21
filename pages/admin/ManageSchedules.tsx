@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Icons } from '../../components/Icons';
 import { useParish } from '../../context/ParishContext';
 import { MassSchedule } from '../../types';
+import { useDialog } from '../../context/DialogContext';
 
 const ManageSchedules: React.FC = () => {
-  const { schedules, addSchedule, updateSchedule, deleteSchedule } = useParish();
+  const { schedules, scheduleNote, addSchedule, updateSchedule, deleteSchedule, saveScheduleNote } = useParish();
+  const { alert, confirm } = useDialog();
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -17,15 +19,42 @@ const ManageSchedules: React.FC = () => {
   };
 
   const [formData, setFormData] = useState(initialFormState);
+  const [noteForm, setNoteForm] = useState({
+    title: scheduleNote?.title ?? 'Confession Schedule',
+    body:
+      scheduleNote?.body ??
+      'The Sacrament of Reconciliation is available every Wednesday after the Novena Mass or by appointment at the Parish Office.',
+    actionLabel: scheduleNote?.actionLabel ?? 'Contact Office for Appointment',
+    actionLink: scheduleNote?.actionLink ?? ''
+  });
+  const [isSavingNote, setIsSavingNote] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    setNoteForm({
+      title: scheduleNote?.title ?? 'Confession Schedule',
+      body:
+        scheduleNote?.body ??
+        'The Sacrament of Reconciliation is available every Wednesday after the Novena Mass or by appointment at the Parish Office.',
+      actionLabel: scheduleNote?.actionLabel ?? 'Contact Office for Appointment',
+      actionLink: scheduleNote?.actionLink ?? ''
+    });
+  }, [scheduleNote]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isEditing && editId) {
-      updateSchedule({ ...formData, id: editId });
-    } else {
-      addSchedule(formData);
+    try {
+      if (isEditing && editId) {
+        await updateSchedule({ ...formData, id: editId });
+      } else {
+        await addSchedule(formData);
+      }
+      resetForm();
+    } catch (error) {
+      await alert({
+        title: 'Unable to save schedule',
+        message: 'Please try again in a moment.'
+      });
     }
-    resetForm();
   };
 
   const handleEdit = (schedule: MassSchedule) => {
@@ -40,9 +69,21 @@ const ManageSchedules: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this schedule?')) {
-      deleteSchedule(id);
+  const handleDelete = async (id: string) => {
+    const shouldDelete = await confirm({
+      title: 'Delete schedule?',
+      message: 'This schedule will be removed from the public list.',
+      confirmText: 'Delete Schedule',
+      destructive: true
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteSchedule(id);
+    } catch (error) {
+      await alert({
+        title: 'Unable to delete schedule',
+        message: 'Please try again later.'
+      });
     }
   };
 
@@ -50,6 +91,30 @@ const ManageSchedules: React.FC = () => {
     setFormData(initialFormState);
     setIsEditing(false);
     setEditId(null);
+  };
+
+  const handleSaveNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setIsSavingNote(true);
+      await saveScheduleNote({
+        title: noteForm.title,
+        body: noteForm.body,
+        actionLabel: noteForm.actionLabel?.trim() ? noteForm.actionLabel : undefined,
+        actionLink: noteForm.actionLink?.trim() ? noteForm.actionLink : undefined
+      });
+      await alert({
+        title: 'Schedule info updated',
+        message: 'The Mass & Events highlight section has been refreshed.'
+      });
+    } catch (error) {
+      await alert({
+        title: 'Unable to save section',
+        message: 'Please try again later.'
+      });
+    } finally {
+      setIsSavingNote(false);
+    }
   };
 
   return (
@@ -171,6 +236,76 @@ const ManageSchedules: React.FC = () => {
               <p className="text-gray-500">No schedules found. Add one to get started.</p>
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="mt-12 grid lg:grid-cols-2 gap-8">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h2 className="text-lg font-bold text-gray-800 mb-4">Mass & Events Highlight</h2>
+          <form onSubmit={handleSaveNote} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Section Title</label>
+              <input
+                type="text"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-parish-blue focus:border-parish-blue outline-none"
+                value={noteForm.title}
+                onChange={(e) => setNoteForm((prev) => ({ ...prev, title: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+              <textarea
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-parish-blue focus:border-parish-blue outline-none"
+                rows={4}
+                value={noteForm.body}
+                onChange={(e) => setNoteForm((prev) => ({ ...prev, body: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Action Label</label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-parish-blue focus:border-parish-blue outline-none"
+                  value={noteForm.actionLabel}
+                  onChange={(e) => setNoteForm((prev) => ({ ...prev, actionLabel: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Action Link</label>
+                <input
+                  type="url"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-parish-blue focus:border-parish-blue outline-none"
+                  placeholder="mailto: or https://"
+                  value={noteForm.actionLink}
+                  onChange={(e) => setNoteForm((prev) => ({ ...prev, actionLink: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={isSavingNote}
+                className="px-5 py-2 rounded-lg bg-parish-blue text-white font-medium hover:bg-blue-800 disabled:opacity-60"
+              >
+                {isSavingNote ? 'Saving...' : 'Save Section'}
+              </button>
+            </div>
+          </form>
+        </div>
+        <div className="bg-parish-silver rounded-2xl p-6 md:p-8">
+          <h3 className="text-sm uppercase tracking-widest text-gray-500 font-semibold mb-2">Preview</h3>
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 min-h-[220px] flex flex-col">
+            <h4 className="text-2xl font-serif font-bold text-gray-900 mb-3">{noteForm.title}</h4>
+            <p className="text-gray-600 flex-1 whitespace-pre-line">{noteForm.body}</p>
+            {noteForm.actionLabel && (
+              <span className="mt-4 inline-flex items-center justify-center gap-2 text-parish-blue font-semibold">
+                <Icons.Church size={16} /> {noteForm.actionLabel}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>

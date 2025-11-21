@@ -3,9 +3,12 @@ import { Link } from 'react-router-dom';
 import { Icons } from '../../components/Icons';
 import { useParish } from '../../context/ParishContext';
 import { Donation } from '../../types';
+import { formatDate } from '../../utils/date';
+import { useDialog } from '../../context/DialogContext';
 
 const ManageDonations: React.FC = () => {
   const { donations, addDonation, updateDonation, deleteDonation } = useParish();
+  const { confirm, alert } = useDialog();
   const [isEditing, setIsEditing] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -19,14 +22,29 @@ const ManageDonations: React.FC = () => {
 
   const [formData, setFormData] = useState(initialFormState);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isEditing && editId) {
-      updateDonation({ ...formData, id: editId });
-    } else {
-      addDonation(formData);
+    try {
+      if (isEditing && editId) {
+        await updateDonation({ ...formData, id: editId });
+      } else {
+        await addDonation(formData);
+      }
+      resetForm();
+    } catch (error) {
+      await alert({
+        title: 'Unable to save donation',
+        message: 'Please try again.'
+      });
     }
-    resetForm();
+  };
+
+  const toInputDate = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toISOString().split('T')[0];
   };
 
   const handleEdit = (item: Donation) => {
@@ -34,7 +52,7 @@ const ManageDonations: React.FC = () => {
       donorName: item.donorName,
       amount: item.amount,
       purpose: item.purpose,
-      date: item.date,
+      date: toInputDate(item.date),
       isAnonymous: item.isAnonymous
     });
     setEditId(item.id);
@@ -42,9 +60,21 @@ const ManageDonations: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this donation record?')) {
-      deleteDonation(id);
+  const handleDelete = async (id: string) => {
+    const shouldDelete = await confirm({
+      title: 'Delete donation record?',
+      message: 'This entry will be removed from the registry.',
+      confirmText: 'Delete',
+      destructive: true
+    });
+    if (!shouldDelete) return;
+    try {
+      await deleteDonation(id);
+    } catch (error) {
+      await alert({
+        title: 'Unable to delete donation',
+        message: 'Please try again later.'
+      });
     }
   };
 
@@ -181,7 +211,7 @@ const ManageDonations: React.FC = () => {
                         {item.purpose}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.date}
+                        {formatDate(item.date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                          <button 
