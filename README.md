@@ -112,3 +112,30 @@ To access the Admin Dashboard:
 4.  **Customize Mass & Events Highlight**:
     *   Visit *Manage Schedules* to update the hero section on the Mass & Events page (title, message, and CTA link).
     *   The preview on the right shows how the public section will render; this change publishes immediately to `/schedules`.
+
+## 🌐 Deployment (Vercel + Railway)
+
+1. **MySQL on Railway**
+   * Create a new Railway project and add the **MySQL** plugin.
+   * Copy the generated `MYSQLURL` (or host/user/pass) and use it as `DATABASE_URL`.
+
+2. **Deploy the Express API**
+   * Add the repo to Railway as a service rooted at `server/`.
+   * Environment variables:
+     * `DATABASE_URL` – from the MySQL plugin
+     * `JWT_SECRET`, `PORT`, `CORS_ORIGIN`, `UPLOAD_FILE_LIMIT_MB`, `UPLOAD_REMINDER_HOURS`
+   * Run `railway run npx prisma migrate deploy` (and `npm run seed` if desired).
+   * Note the public API URL, e.g. `https://your-api.up.railway.app`.
+
+3. **Deploy the Vite Frontend on Vercel**
+   * Import the repo into Vercel (framework = Vite, root = project root).
+   * Set `VITE_API_BASE_URL=https://your-api.up.railway.app/api`.
+   * Build command: `npm run build`.
+
+4. **Update CORS**
+   * If the Vercel URL changes, update `CORS_ORIGIN` on Railway so browser calls succeed.
+
+5. **Migrations**
+   * Each time the schema changes, run `railway run npx prisma migrate deploy` to apply migrations in production.
+
+This setup keeps the frontend static on Vercel while the API + database run on Railway. Update `.env.local`/`.env` locally to mirror the production values when testing against live services.
