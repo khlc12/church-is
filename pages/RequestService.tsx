@@ -1,0 +1,214 @@
+import React, { useState } from 'react';
+import { Icons } from '../components/Icons';
+import { useParish } from '../context/ParishContext';
+import { RequestCategory } from '../types';
+
+const RequestService: React.FC = () => {
+  const { addRequest } = useParish();
+  const [submitted, setSubmitted] = useState(false);
+  
+  const [category, setCategory] = useState<RequestCategory>(RequestCategory.SACRAMENT);
+  const [serviceType, setServiceType] = useState('Baptism');
+  
+  const [formData, setFormData] = useState({
+    requesterName: '',
+    contactInfo: '',
+    preferredDate: '',
+    details: ''
+  });
+
+  const handleCategoryChange = (newCategory: RequestCategory) => {
+    setCategory(newCategory);
+    // Reset service type based on category
+    if (newCategory === RequestCategory.SACRAMENT) {
+      setServiceType('Baptism');
+    } else {
+      setServiceType('Baptismal Certificate');
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addRequest({
+      category,
+      serviceType,
+      requesterName: formData.requesterName,
+      contactInfo: formData.contactInfo,
+      preferredDate: formData.preferredDate,
+      details: formData.details
+    });
+    setSubmitted(true);
+    window.scrollTo(0, 0);
+  };
+
+  if (submitted) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-green-600">
+          <Icons.CheckCircle size={40} />
+        </div>
+        <h2 className="text-3xl font-serif font-bold text-gray-900 mb-4">Request Submitted</h2>
+        <p className="text-gray-600 mb-8 text-lg">
+          Thank you for your request. Our parish staff has been notified and will review your application. 
+          We will contact you via {formData.contactInfo} regarding the next steps.
+        </p>
+        <button 
+          onClick={() => {
+            setSubmitted(false);
+            setFormData({ requesterName: '', contactInfo: '', preferredDate: '', details: '' });
+          }}
+          className="bg-parish-blue text-white px-8 py-3 rounded-full font-medium hover:bg-blue-800 transition"
+        >
+          Submit Another Request
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="text-center mb-12">
+        <h1 className="text-3xl md:text-4xl font-serif font-bold text-parish-blue mb-4">Online Service Requests</h1>
+        <p className="text-gray-600 max-w-2xl mx-auto">
+          Request sacraments or certificates conveniently from home. 
+          Please fill out the form below and our office will get in touch with you.
+        </p>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-gray-200">
+        {/* Category Tabs */}
+        <div className="flex border-b border-gray-200">
+          <button
+            className={`flex-1 py-4 text-center font-medium transition ${category === RequestCategory.SACRAMENT ? 'bg-parish-blue text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+            onClick={() => handleCategoryChange(RequestCategory.SACRAMENT)}
+          >
+            Request a Sacrament
+          </button>
+          <button
+            className={`flex-1 py-4 text-center font-medium transition ${category === RequestCategory.CERTIFICATE ? 'bg-parish-pink text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'}`}
+            onClick={() => handleCategoryChange(RequestCategory.CERTIFICATE)}
+          >
+            Request a Certificate
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+          
+          <div className="bg-blue-50 border-l-4 border-parish-blue p-4 rounded mb-6">
+            <div className="flex gap-3">
+              <Icons.FileQuestion className="text-parish-blue flex-shrink-0" size={24} />
+              <div>
+                <h3 className="font-bold text-gray-800 text-sm mb-1">
+                  {category === RequestCategory.SACRAMENT ? 'Sacrament Application' : 'Certificate Request'}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {category === RequestCategory.SACRAMENT 
+                    ? 'Schedule a Baptism, Confirmation, Wedding, or Funeral blessing.'
+                    : 'Request copies of baptismal, confirmation, marriage, or death certificates for legal or personal use.'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Service Type</label>
+              <select 
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-parish-blue outline-none bg-white"
+                value={serviceType}
+                onChange={(e) => setServiceType(e.target.value)}
+              >
+                {category === RequestCategory.SACRAMENT ? (
+                  <>
+                    <option value="Baptism">Baptism</option>
+                    <option value="Confirmation">Confirmation</option>
+                    <option value="Marriage">Marriage</option>
+                    <option value="Funeral">Funeral Blessing</option>
+                    <option value="Anointing of the Sick">Anointing of the Sick</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="Baptismal Certificate">Baptismal Certificate</option>
+                    <option value="Confirmation Certificate">Confirmation Certificate</option>
+                    <option value="Marriage Certificate">Marriage Certificate</option>
+                    <option value="Death Certificate">Death Certificate</option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Requester Name</label>
+              <input 
+                type="text" 
+                required
+                placeholder="Full Name"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-parish-blue outline-none"
+                value={formData.requesterName}
+                onChange={(e) => setFormData({...formData, requesterName: e.target.value})}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Contact Info (Mobile/Email)</label>
+              <input 
+                type="text" 
+                required
+                placeholder="0917... or email@example.com"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-parish-blue outline-none"
+                value={formData.contactInfo}
+                onChange={(e) => setFormData({...formData, contactInfo: e.target.value})}
+              />
+            </div>
+
+            {category === RequestCategory.SACRAMENT && (
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Date</label>
+                <input 
+                  type="date" 
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-parish-blue outline-none"
+                  value={formData.preferredDate}
+                  onChange={(e) => setFormData({...formData, preferredDate: e.target.value})}
+                />
+                <p className="text-xs text-gray-500 mt-1">Subject to availability and confirmation by the parish office.</p>
+              </div>
+            )}
+
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {category === RequestCategory.SACRAMENT 
+                  ? 'Additional Details (Name of child/couple, special requests)' 
+                  : 'Purpose & Details (Name on record, approximate date of sacrament)'}
+              </label>
+              <textarea 
+                required
+                rows={4}
+                placeholder={category === RequestCategory.SACRAMENT 
+                  ? "e.g., Child's name is John Doe. We prefer a morning schedule." 
+                  : "e.g., For marriage license requirements. Baptized around 1995."}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-parish-blue outline-none"
+                value={formData.details}
+                onChange={(e) => setFormData({...formData, details: e.target.value})}
+              />
+            </div>
+          </div>
+
+          <div className="pt-4">
+            <button 
+              type="submit" 
+              className="w-full bg-parish-blue hover:bg-blue-800 text-white font-bold py-4 rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+            >
+              <Icons.FileQuestion size={20} /> Submit Request
+            </button>
+            <p className="text-center text-sm text-gray-500 mt-4">
+              By submitting this form, you agree to share your information with the parish office for processing purposes.
+            </p>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default RequestService;
