@@ -27,7 +27,9 @@ import {
   Download,
   AlertTriangle,
   Phone,
-  Mail
+  Mail,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export const Icons = {
@@ -58,5 +60,7 @@ export const Icons = {
   Download,
   AlertTriangle,
   Phone,
-  Mail
+  Mail,
+  Eye,
+  EyeOff
 };

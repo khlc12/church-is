@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Icons } from './Icons';
 import { UserRole, User } from '../types';
 import { LOGO_URL, LOGO_FALLBACK } from '../constants';
+import { useDialog } from '../context/DialogContext';
 
 interface NavbarProps {
   user: User | null;
@@ -13,6 +14,7 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
   const [imgSrc, setImgSrc] = useState(LOGO_URL);
+  const { confirm } = useDialog();
 
   const isAdmin = user?.role === UserRole.ADMIN;
 
@@ -58,7 +60,15 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
 
             {user ? (
               <button 
-                onClick={onLogout}
+                onClick={async () => {
+                  const shouldLogout = await confirm({
+                    title: 'Logout?',
+                    message: 'You will be signed out of the admin area.',
+                    confirmText: 'Logout',
+                    destructive: true
+                  });
+                  if (shouldLogout) onLogout();
+                }}
                 className="flex items-center gap-2 bg-parish-blue text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-blue-800 transition-colors"
               >
                 <Icons.LogOut size={16} /> Logout
@@ -104,7 +114,23 @@ const Navbar: React.FC<NavbarProps> = ({ user, onLogout }) => {
             
             <div className="border-t border-gray-200 my-2"></div>
             {user ? (
-              <button onClick={() => { onLogout(); setIsOpen(false); }} className="w-full text-left block px-3 py-2 text-base font-medium text-red-600">Logout</button>
+              <button
+                onClick={async () => {
+                  const shouldLogout = await confirm({
+                    title: 'Logout?',
+                    message: 'You will be signed out of the admin area.',
+                    confirmText: 'Logout',
+                    destructive: true
+                  });
+                  if (shouldLogout) {
+                    onLogout();
+                    setIsOpen(false);
+                  }
+                }}
+                className="w-full text-left block px-3 py-2 text-base font-medium text-red-600"
+              >
+                Logout
+              </button>
             ) : (
               <Link to="/login" onClick={() => setIsOpen(false)} className="block px-3 py-2 text-base font-medium text-parish-blue">Staff Login</Link>
             )}
